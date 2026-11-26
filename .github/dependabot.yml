@@ -1,0 +1,13 @@
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    groups:
+      flask-stack:
+        patterns: ["flask", "werkzeug", "gunicorn"]
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
