@@ -8,14 +8,12 @@ def db_query(query, params=()):
     conn = sqlite3.connect('vulnerable.db')
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
-    # Aquí ocurre el SQLi: ejecutamos la string tal cual viene
     cursor.execute(query, params)
     result = cursor.fetchall()
     conn.commit()
     conn.close()
     return result
 
-# --- LOGIN (Vulnerable a SQL Injection) ---
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -55,11 +53,11 @@ def dashboard():
         return redirect('/login')
     datos = resultado[0]
 
-    # Vulnerabilidad XSS: render_template_string no escapa variables puestas con f-strings
-    html = f"""
-    <h1>Panel de {datos['username']}</h1>
-    <p><b>Rol:</b> {datos['rol']}</p>
-    <p><b>Biografía:</b> {datos['bio']}</p>
+    # Corrección XSS: plantilla con variables Jinja2 ({{ }}), que escapan el HTML automáticamente
+    html = """
+    <h1>Panel de {{ username }}</h1>
+    <p><b>Rol:</b> {{ rol }}</p>
+    <p><b>Biografía:</b> {{ bio }}</p>
     <hr>
     <h3>Actualizar Biografía (Objetivo CSRF)</h3>
     <form action="/update_bio" method="POST">
@@ -68,7 +66,12 @@ def dashboard():
     </form>
     <br><a href="/logout">Cerrar Sesión</a>
     """
-    return render_template_string(html)
+    return render_template_string(
+        html,
+        username=datos['username'],
+        rol=datos['rol'],
+        bio=datos['bio']
+    )
 
 @app.route('/update_bio', methods=['POST'])
 def update_bio():
