@@ -10,6 +10,21 @@ app = Flask(__name__)
 # Corrección CSRF: clave secreta y protección global con tokens
 app.secret_key = os.environ.get('SECRET_KEY', 'clave-solo-para-desarrollo')
 csrf = CSRFProtect(app)
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Strict",
+    SESSION_COOKIE_SECURE=False,   # True cuando haya HTTPS
+)
+
+@app.after_request
+def cabeceras_seguridad(resp):
+    resp.headers["X-Frame-Options"] = "DENY"
+    resp.headers["X-Content-Type-Options"] = "nosniff"
+    resp.headers["Content-Security-Policy"] = "default-src 'self'"
+    resp.headers["Permissions-Policy"] = "geolocation=(), camera=(), microphone=()"
+    resp.headers["Cross-Origin-Embedder-Policy"] = "require-corp"
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
 metrics = PrometheusMetrics(app)
 LOGIN_FALLIDOS = Counter("login_fallidos_total", "Intentos de login fallidos")
 
