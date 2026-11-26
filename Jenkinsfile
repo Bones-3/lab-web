@@ -17,7 +17,7 @@ pipeline {
         catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
           sh '''
             rc=0
-            docker run --rm lab-web:${BUILD_NUMBER} sh -c "pip install -q pytest && pytest test/" > pytest.txt 2>&1 || rc=$?
+            docker run --rm lab-web:${BUILD_NUMBER} sh -c "pip install -q pytest && python -m pytest test/" > pytest.txt 2>&1 || rc=$?
             cat pytest.txt
             exit $rc
           '''
