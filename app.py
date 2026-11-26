@@ -1,5 +1,7 @@
 import sqlite3
 import os
+from prometheus_flask_exporter import PrometheusMetrics
+from prometheus_client import Counter
 
 from flask_wtf.csrf import CSRFProtect
 from flask import Flask, request, render_template_string, redirect, make_response
@@ -8,6 +10,8 @@ app = Flask(__name__)
 # Corrección CSRF: clave secreta y protección global con tokens
 app.secret_key = os.environ.get('SECRET_KEY', 'clave-solo-para-desarrollo')
 csrf = CSRFProtect(app)
+metrics = PrometheusMetrics(app)
+LOGIN_FALLIDOS = Counter("login_fallidos_total", "Intentos de login fallidos")
 
 def db_query(query, params=()):
     """Función auxiliar para ejecutar queries (Vulnerable por diseño)"""
@@ -34,6 +38,7 @@ def login():
             resp = make_response(redirect('/dashboard'))
             resp.set_cookie('user_session', usuario['username'], httponly=True, samesite='Lax')
             return resp
+        LOGIN_FALLIDOS.inc()
         return "<h3>Acceso denegado</h3><a href='/login'>Volver</a>", 401
 
     return render_template_string('''
