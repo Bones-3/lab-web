@@ -3,13 +3,13 @@ import sqlite3
 
 app = Flask(__name__)
 
-def db_query(query):
+def db_query(query, params=()):
     """Función auxiliar para ejecutar queries (Vulnerable por diseño)"""
     conn = sqlite3.connect('vulnerable.db')
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     # Aquí ocurre el SQLi: ejecutamos la string tal cual viene
-    cursor.execute(query)
+    cursor.execute(query, params)
     result = cursor.fetchall()
     conn.commit()
     conn.close()
@@ -22,9 +22,8 @@ def login():
         user = request.form.get('username')
         pw = request.form.get('password')
         
-        # El SQLi clásico: saltarse el password con ' OR '1'='1
-        query = f"SELECT * FROM usuarios WHERE username = '{user}' AND password = '{pw}'"
-        usuarios = db_query(query)
+        query = "SELECT * FROM usuarios WHERE username = ? AND password = ?"
+        usuarios = db_query(query, (user, pw))
         
         if usuarios:
             usuario = usuarios[0]
@@ -51,7 +50,10 @@ def dashboard():
         return redirect('/login')
 
     # Buscamos los datos del usuario logueado
-    datos = db_query(f"SELECT * FROM usuarios WHERE username = '{username}'")[0]
+    resultado = db_query("SELECT * FROM usuarios WHERE username = ?", (username,))
+    if not resultado:
+        return redirect('/login')
+    datos = resultado[0]
 
     # Vulnerabilidad XSS: render_template_string no escapa variables puestas con f-strings
     html = f"""
@@ -74,7 +76,7 @@ def update_bio():
     if username:
         nueva_bio = request.form.get('nueva_bio')
         # Vulnerable a CSRF: No hay token de validación
-        db_query(f"UPDATE usuarios SET bio = '{nueva_bio}' WHERE username = '{username}'")
+        db_query("UPDATE usuarios SET bio = ? WHERE username = ?", (nueva_bio, username))
     return redirect('/dashboard')
 
 @app.route('/logout')
