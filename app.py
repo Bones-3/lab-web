@@ -1,7 +1,13 @@
-from flask import Flask, request, render_template_string, redirect, make_response
 import sqlite3
+import os
+
+from flask_wtf.csrf import CSRFProtect
+from flask import Flask, request, render_template_string, redirect, make_response
 
 app = Flask(__name__)
+# Corrección CSRF: clave secreta y protección global con tokens
+app.secret_key = os.environ.get('SECRET_KEY', 'clave-solo-para-desarrollo')
+csrf = CSRFProtect(app)
 
 def db_query(query, params=()):
     """Función auxiliar para ejecutar queries (Vulnerable por diseño)"""
@@ -26,19 +32,19 @@ def login():
         if usuarios:
             usuario = usuarios[0]
             resp = make_response(redirect('/dashboard'))
-            # Vulnerable: Cookie de sesión en texto plano y sin flags de seguridad
-            resp.set_cookie('user_session', usuario['username'])
+            resp.set_cookie('user_session', usuario['username'], httponly=True, samesite='Lax')
             return resp
         return "<h3>Acceso denegado</h3><a href='/login'>Volver</a>", 401
 
-    return '''
+    return render_template_string('''
         <h2>Login del Sistema Académico</h2>
         <form method="post">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             Usuario: <input type="text" name="username"><br>
             Password: <input type="password" name="password"><br>
             <input type="submit" value="Ingresar">
         </form>
-    '''
+    ''')
 
 # --- DASHBOARD (Vulnerable a XSS y CSRF) ---
 @app.route('/dashboard')
@@ -61,6 +67,7 @@ def dashboard():
     <hr>
     <h3>Actualizar Biografía (Objetivo CSRF)</h3>
     <form action="/update_bio" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">    
         <input type="text" name="nueva_bio" placeholder="Escribe algo...">
         <input type="submit" value="Guardar Cambios">
     </form>
