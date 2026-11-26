@@ -25,6 +25,17 @@ pipeline {
       }
     }
 
+    stage('SAST y Dependencias') {
+      steps {
+        sh '''
+          docker run --rm lab-web:${BUILD_NUMBER} sh -c "pip install -q bandit && bandit -r app.py init_db.py" > bandit.txt 2>&1 || true
+          docker run --rm lab-web:${BUILD_NUMBER} sh -c "pip install -q pip-audit && pip-audit -r requirements.txt" > pip-audit.txt 2>&1 || true
+          cat bandit.txt
+          cat pip-audit.txt
+        '''
+      }
+    }
+
     stage('Deploy') {
       steps {
         sh '''
@@ -35,9 +46,24 @@ pipeline {
         '''
       }
     }
+
+    stage('ZAP') {
+      steps {
+        sh '''
+          docker volume rm -f zapwrk || true
+          docker volume create zapwrk
+          docker run --rm -u 0 --network secnet -v zapwrk:/zap/wrk ghcr.io/zaproxy/zaproxy:stable zap-baseline.py -t http://app:5000 -r zap.html > zap.txt 2>&1 || true
+          cat zap.txt
+          docker rm -f zapcp || true
+          docker create --name zapcp -v zapwrk:/zap/wrk alpine
+          docker cp zapcp:/zap/wrk/zap.html .
+          docker rm zapcp
+        '''
+      }
+    }
   }
 
   post {
-    always { archiveArtifacts artifacts: '*.txt', allowEmptyArchive: true }
+    always { archiveArtifacts artifacts: '*.txt, zap.html', allowEmptyArchive: true }
   }
 }
